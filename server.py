@@ -6,7 +6,7 @@ HEADER = 64
 #header tells us how many bytes to receive, header is 64 bytes
 #consistent header size which communicates the size to come
 
-PORT = 5050 
+PORT = 9195
 # socket is 192.168.1.71
 SERVER = socket.gethostbyname(socket.gethostname()) #socket of host computer
 HOST = socket.gethostname() #name of host computer
@@ -20,6 +20,8 @@ server.bind(ADDR)
 print(SERVER)
 print("220 " + HOST)
 
+
+"""
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
@@ -54,3 +56,4 @@ def start():
 
 print("[STARTING] server is starting...")
 start()
+"""
