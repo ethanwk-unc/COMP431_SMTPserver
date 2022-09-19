@@ -1,59 +1,43 @@
 """COMP 431 SMTP server"""
 import socket
+import re
+import sys
 import threading
 
-HEADER = 64 
 #header tells us how many bytes to receive, header is 64 bytes
 #consistent header size which communicates the size to come
+def main():
+    PORT = 9195
+    # socket is 192.168.1.71
+    HOST_SOCKET = socket.gethostbyname(socket.gethostname()) #socket of host computer
+    LOCALHOST = socket.gethostname() #name of host computer
+    FORMAT = 'utf-8' #Which format to be used when read
 
-PORT = 9195
-# socket is 192.168.1.71
-SERVER = socket.gethostbyname(socket.gethostname()) #socket of host computer
-HOST = socket.gethostname() #name of host computer
+    ADDR = (HOST_SOCKET, PORT) #socket of host and free port
 
-ADDR = (SERVER, PORT) #socket of host and free port
+    servSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servSocket.bind(ADDR)
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servSocket.listen()
 
-server.bind(ADDR)
- 
-print(SERVER)
-print("220 " + HOST)
+    servSocket, CLIENT_ADDR = servSocket.accept()
 
+    msg = "220" + LOCALHOST #send generic greeting msg to client
+    servSocket.sendall(msg.encode(FORMAT))
 
-"""
-FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = "!DISCONNECT"
+    msgRecv = servSocket.recv(256).decode(FORMAT)
+    msgRecBool = msg_valid(msgRecv)
 
-
-def handle_client(conn, addr):
-    print(f"[NEW CONNECTION] {addr} connected.")
-
-    connected = True
-    while connected:
-        msg_length = conn.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == DISCONNECT_MESSAGE:
-                connected = False
-
-            print(f"[{addr}] {msg}")
-            conn.send("Msg received".encode(FORMAT))
-
-    conn.close()
-        
-
-def start():
-    server.listen()
-    print(f"[LISTENING] Server is listening on {SERVER}")
-    while True:
-        conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+    if(msgRecBool):
+        # start message processing loop
+    else:
+        # 500 or 501 error
 
 
-print("[STARTING] server is starting...")
-start()
-"""
+
+def msg_valid(msg) -> bool: 
+    msg_vaild = "^HELO\s*([a-zA-Z][a-z0-9A-Z-]*(\.[a-zA-Z][a-z0-9A-Z-]*)*)$"
+
+    if re.match(msg_valid, msg): #check if passed parameter matches the email_valid string
+            return True
+    return False
