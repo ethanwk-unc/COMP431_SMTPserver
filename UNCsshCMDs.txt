@@ -1,0 +1,13 @@
+scp Server.py ethanwk@comp431-1fa22.cs.unc.edu:/home/ethanwk/hw3/Server.py
+
+scp Client.py ethanwk@comp431-1fa22b.cs.unc.edu:/home/ethanwk/hw3/Client.py
+
+ssh ethanwk@comp431-1fa22.cs.unc.edu
+
+ssh ethanwk@comp431-1fa22b.cs.unc.edu
+
+Tears for fears 3286
+
+python3 Server.py 9195
+
+python3 Client.py comp431-1fa22.cs.unc.edu 9195
