@@ -3,19 +3,23 @@ import socket
 import re
 import sys
 
-cur_cmd = 'mfrm' #command that is currently being looked for
-prev_cmd = '.'   #previous command
-cmd_rec = ''     #command last received
+cur_cmd = 'helo'        #command that is currently being looked for
+prev_cmd = 'quit'       #previous command
+cmd_rec = ''            #command last received
+
+PORT = 9195
+HOST_SOCKET = socket.gethostbyname(socket.gethostname()) #socket of host computer
+LOCALHOST = socket.gethostname() #name of host computer
+FORMAT = "utf-8" #Which format to be used when read
+ADDR = (HOST_SOCKET, PORT) #socket of host and free port
 
 def main():
-    PORT = 9195
-    HOST_SOCKET = socket.gethostbyname(socket.gethostname()) #socket of host computer
-    LOCALHOST = socket.gethostname() #name of host computer
-    FORMAT = "utf-8" #Which format to be used when read
-    ADDR = (HOST_SOCKET, PORT) #socket of host and free port
 
-    print("test handshake")
+    print("test helo err")
+
+    global servSocket;
     servSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create a socket for streaming data
+    print("[SERVER SOCKET CREATED]")
     servSocket.bind(ADDR) #bind the socket to the address of the current computer
     print("[BIND]")
 
@@ -34,14 +38,15 @@ def main():
     print("[DECODE HELLO]")
     print(heloRecv)
 
-    if(helo_Cmdvalid(heloRecv)): #HELO command was valid
-        test = "[HELO CMD = TRUE]"
+    if (cmd_valid(heloRecv)): #HELO command was valid
+        test = "[HELO CMD VALID]"
         print(test)
 
         if(helo_Domvalid(heloRecv)):
-            test = "[HELO DOM = TRUE]"
+            test = "[HELO DOM VALID]"
             print(test)
-        
+            servSocket.close()
+            """
             elements = heloRecv.split() #split into HELO and client name
             client_name = elements[1]
             print("[READ CLIENT NAME]")
@@ -50,19 +55,32 @@ def main():
             servSocket.sendall(handshake.encode(FORMAT))
             print("[PRINT HANDSHAKE]")
             print(handshake)
+
             msgRecv = servSocket.recv(256).decode(FORMAT)
 
             while(not disconnect(msgRecv)):
+                print("[MSG LOOP]")
                 msg_loop(msgRecv)
-                servSocket.sendall(msgRecv.encode(FORMAT))
+                msgRecv = servSocket.recv(256).decode(FORMAT)
+            
             disconnected = "221 " + LOCALHOST + " closing connection"
             servSocket.sendall(disconnected.encode(FORMAT))
+            servSocket.close()
+            """
+        else:
+            ERROR501 = '501 Syntax error in parameters or arguments'
+            test = "[HELO DOM INVALID]"
+            print(test)
+            servSocket.sendall(ERROR501.encode(FORMAT))
+            servSocket.close()
+
 
     else:
+        ERROR500 = '500 Syntax error: command unrecognized'
         test = "[HELO CMD INVALID]"
         print(test)
-        error500 = '500 Syntax error: command unrecognized'
-        print(error500)
+        servSocket.sendall(ERROR500.encode(FORMAT))
+        servSocket.close()
 
 
 def disconnect(msg) -> bool:
@@ -72,17 +90,6 @@ def disconnect(msg) -> bool:
             return True
     return False
 
-def helo_Cmdvalid(msg) -> bool: 
-    helo_syntax = "^HELO\s+.*"
-
-    if re.match(helo_syntax, msg):
-            return True
-    return False
-    """elements = msg.split()
-    if (elements[0] == "HELO"):
-            return True
-    return False"""
-
 def helo_Domvalid(msg) -> bool: 
     helo_syntax = "^HELO\s+([a-zA-Z][a-z0-9A-Z-]*(\.[a-zA-Z][a-z0-9A-Z-]*)*)$"
 
@@ -91,12 +98,17 @@ def helo_Domvalid(msg) -> bool:
     return False
 
 def msg_loop(line):
+    global cur_cmd
+    global prev_cmd
+    global cmd_rec
+
     lines = []                                      #array to store all lines that are valid
     if cur_cmd == '.':                          #when the current command is looking for the "."
         detect_dot = line.split()               #split line into parts
         if detect_dot[0] == '.':                #if the first part of the line is "." end
             print(".")
-            print('250 OK')
+            OK = '250 OK'
+            servSocket.sendall(OK.encode(FORMAT))
             lines.append(line)
             cur_cmd = 'mfrm'                    #reset to default command
             prev_cmd = '.'                      #reset previous command to "."
@@ -110,13 +122,17 @@ def msg_loop(line):
         if cmd_valid(line):                     #if cmd not valid 500 err
             if order_valid(line) or (not helo_Cmdvalid(line)):               #if order not valid 503 err
                 if prev_cmd == 'data':
+                    startInput = '354 Start mail input; end with . on a line by itself'
                     lines.append(line)
                     print(line, end='')
-                    print('354 Start mail input; end with . on a line by itself')
+                    print(startInput)
+                    servSocket.sendall(startInput.encode(FORMAT))
                 elif prev_cmd == 'mfrm' or prev_cmd == 'rcpt': #if email not valid 501 err
                     if parameter_valid(line):
+                        OK = '250 OK'
                         print(line, end='')
-                        print('250 OK')
+                        print(OK)
+                        servSocket.sendall(OK.encode(FORMAT))
                         if prev_cmd == 'mfrm':
                             lines.append(line)
                         elif prev_cmd == 'rcpt':
@@ -126,21 +142,34 @@ def msg_loop(line):
                             cur_cmd = 'mfrm'
                         else:
                             cur_cmd = 'rcpt'
+                        ERROR501 = '501 Syntax error in parameters or arguments'
                         print(line, end='')
-                        print('501 Syntax error in parameters or arguments')
+                        print(ERROR501)
+                        servSocket.sendall(ERROR501.encode(FORMAT))
             else:
+                ERROR503 = '503 Bad sequence of commands'
                 print(line, end='')
                 print('503 Bad sequence of commands')
+                servSocket.sendall(ERROR503.encode(FORMAT))
         else:
+            ERROR500 = '500 Syntax error: command unrecognized'
             print(line, end='')
             print('500 Syntax error: command unrecognized')
+            servSocket.sendall(ERROR500.encode(FORMAT))
 
 def cmd_valid(line) -> bool:
     global prev_cmd
     global cur_cmd
     global cmd_rec
 
-    if line[0] == 'M':
+    if line[0] == 'H':
+        cmd_form = "^HELO\s+.*"
+        if re.match(cmd_form,line): #check if passed parameter matches the cmd_form string
+            cmd_rec = 'helo'        #if yes then valid received command is mfrm
+            return True
+        else:
+            return False
+    elif line[0] == 'M':
         cmd_form = "^MAIL\s+FROM:.+"
         if re.match(cmd_form,line): #check if passed parameter matches the cmd_form string
             cmd_rec = 'mfrm'        #if yes then valid received command is mfrm
@@ -165,6 +194,10 @@ def cmd_valid(line) -> bool:
         return False
 
 def order_valid(line) -> bool:
+    global prev_cmd
+    global cur_cmd
+    global cmd_rec
+    
     if cur_cmd == 'mfrm' and cmd_rec == 'mfrm': #confirm command looking for is mail from and the cmd rec is mfrm
         prev_cmd = cur_cmd                      #make prev cmd last cmd
         cur_cmd = 'rcpt'                        #look for rcpt cmd

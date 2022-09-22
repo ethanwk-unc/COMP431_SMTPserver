@@ -11,3 +11,10 @@ Tears for fears 3286
 python3 Server.py 9195
 
 python3 Client.py comp431-1fa22.cs.unc.edu 9195
+
+check for 503 errors before msg loop
+
+
+only thing in file is message body and the .
+
+domains can have numbers
