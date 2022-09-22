@@ -11,46 +11,79 @@ def main():
     PORT = 9195
     HOST_SOCKET = socket.gethostbyname(socket.gethostname()) #socket of host computer
     LOCALHOST = socket.gethostname() #name of host computer
-    FORMAT = 'utf-8' #Which format to be used when read
-
+    FORMAT = "utf-8" #Which format to be used when read
     ADDR = (HOST_SOCKET, PORT) #socket of host and free port
 
+    print("test handshake")
     servSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create a socket for streaming data
     servSocket.bind(ADDR) #bind the socket to the address of the current computer
+    print("[BIND]")
 
     servSocket.listen() #Begin listening on port 9195
-
+    print("[LISTEN]")
     servSocket, CLIENT_ADDR = servSocket.accept()
+    print("[ACCEPT]")
 
-    greeting = "220" + LOCALHOST #send generic greeting msg to client
+    greeting = "220 " + LOCALHOST #send generic greeting msg to client
+    print("[GREETING MAKE]")
     servSocket.sendall(greeting.encode(FORMAT))
+    print("[SEND GREETING]")
+    print(greeting)
 
     heloRecv = servSocket.recv(256).decode(FORMAT)
-    heloRecvBool = helo_valid(heloRecv)# create bool of if helo was valid
+    print("[DECODE HELLO]")
+    print(heloRecv)
 
-    if(heloRecvBool): #HELO command was valid
-        elements = heloRecv.split() #split into HELO and client name
-        client_name = elements[1]
+    if(helo_Cmdvalid(heloRecv)): #HELO command was valid
+        test = "[HELO CMD = TRUE]"
+        print(test)
 
-        handshake = "250 Hello " + client_name + "pleased to meet you"
-        servSocket.sendall(handshake.encode(FORMAT))
-        msgRecv = servSocket.recv(256).decode(FORMAT)
+        if(helo_Domvalid(heloRecv)):
+            test = "[HELO DOM = TRUE]"
+            print(test)
+        
+            elements = heloRecv.split() #split into HELO and client name
+            client_name = elements[1]
+            print("[READ CLIENT NAME]")
 
-        DISCONNECT = "QUIT"
+            handshake = "250 Hello " + client_name + " pleased to meet you"
+            servSocket.sendall(handshake.encode(FORMAT))
+            print("[PRINT HANDSHAKE]")
+            print(handshake)
+            msgRecv = servSocket.recv(256).decode(FORMAT)
 
-        while(msgRecv != DISCONNECT):
-            print("msg_loop")
-            #msg_loop(msgRecv)
-
-        #quit sequence function
+            while(not disconnect(msgRecv)):
+                msg_loop(msgRecv)
+                servSocket.sendall(msgRecv.encode(FORMAT))
+            disconnected = "221 " + LOCALHOST + " closing connection"
+            servSocket.sendall(disconnected.encode(FORMAT))
 
     else:
+        test = "[HELO CMD INVALID]"
+        print(test)
         error500 = '500 Syntax error: command unrecognized'
-        servSocket.sendall(heloRecv.encode(FORMAT)) #ECHO
-        servSocket.sendall(error500.encode(FORMAT))
+        print(error500)
 
 
-def helo_valid(msg) -> bool: 
+def disconnect(msg) -> bool:
+    quit_syntax = "^QUIT\s*$"
+
+    if re.match(quit_syntax, msg):
+            return True
+    return False
+
+def helo_Cmdvalid(msg) -> bool: 
+    helo_syntax = "^HELO\s+.*"
+
+    if re.match(helo_syntax, msg):
+            return True
+    return False
+    """elements = msg.split()
+    if (elements[0] == "HELO"):
+            return True
+    return False"""
+
+def helo_Domvalid(msg) -> bool: 
     helo_syntax = "^HELO\s+([a-zA-Z][a-z0-9A-Z-]*(\.[a-zA-Z][a-z0-9A-Z-]*)*)$"
 
     if re.match(helo_syntax, msg):
@@ -58,10 +91,6 @@ def helo_valid(msg) -> bool:
     return False
 
 def msg_loop(line):
-    global cur_cmd
-    global prev_cmd
-    global cmd_rec
-
     lines = []                                      #array to store all lines that are valid
     if cur_cmd == '.':                          #when the current command is looking for the "."
         detect_dot = line.split()               #split line into parts
@@ -79,7 +108,7 @@ def msg_loop(line):
             print(line, end='')                 #else print line
     else:
         if cmd_valid(line):                     #if cmd not valid 500 err
-            if order_valid(line):               #if order not valid 503 err
+            if order_valid(line) or (not helo_Cmdvalid(line)):               #if order not valid 503 err
                 if prev_cmd == 'data':
                     lines.append(line)
                     print(line, end='')
@@ -136,10 +165,6 @@ def cmd_valid(line) -> bool:
         return False
 
 def order_valid(line) -> bool:
-    global cur_cmd
-    global prev_cmd
-    global cmd_rec
-
     if cur_cmd == 'mfrm' and cmd_rec == 'mfrm': #confirm command looking for is mail from and the cmd rec is mfrm
         prev_cmd = cur_cmd                      #make prev cmd last cmd
         cur_cmd = 'rcpt'                        #look for rcpt cmd
@@ -189,3 +214,6 @@ def write_file(lines):
         for line in lines:                                  #write the lines of lines into the new file
             file.write(line)
     return
+
+if __name__ == "__main__":
+    main()
