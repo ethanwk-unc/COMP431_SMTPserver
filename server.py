@@ -24,10 +24,11 @@ def main():
         global cur_cmd
         global prev_cmd
         global cmd_rec
-        global servSocket;
+        global servSocket
 
         firstSocket.listen() #Begin listening on port 9195
         servSocket, CLIENT_ADDR = firstSocket.accept()
+
 
         greeting = "220 " + LOCALHOST #send generic greeting msg to client
         servSocket.sendall(greeting.encode(FORMAT))
@@ -53,21 +54,15 @@ def main():
         servSocket.sendall(handshake.encode(FORMAT))
         print(handshake)
 
-#this is where shit get fucky
-
         msgRecv = servSocket.recv(256).decode(FORMAT)
-        #while(disconnect(msgRecv) == False):
-        while(msgRecv != '.'):
+        while(disconnect(msgRecv) == False):
             msg_loop(msgRecv)
             msgRecv = servSocket.recv(256).decode(FORMAT)
         
-        msgRecv = servSocket.recv(256).decode(FORMAT)
         disconnected = "221 " + LOCALHOST + " closing connection"
         servSocket.sendall(disconnected.encode(FORMAT))
         print(disconnected)
         servSocket.close()
-                
-
 
 def disconnect(msg) -> bool:
     quit_syntax = "^QUIT\s*$"
@@ -90,25 +85,27 @@ def msg_loop(line):
     global prev_cmd
     global cmd_rec
     global recipient
-    global lines 
+    global lines
 
                          
-    if cur_cmd == '.':                                         
-        if line == '.':
-            lines.append(line)                
-            print(line)
-            OK = '250 OK'
-            servSocket.sendall(line.encode(FORMAT))
-            cur_cmd = 'mfrm'                 
-            prev_cmd = '.'                      
+    if cur_cmd == '.':
+        elms = line.split()
+        for line in elms:       
+            if line == '.':
+                lines.append(line)                
+                print(line)
+                OK = '250 OK'
+                servSocket.sendall(OK.encode(FORMAT))
+                cur_cmd = 'mfrm'                 
+                prev_cmd = '.'                      
 
-            write_file(lines, recipient)               
-            lines = []
-            recipient = ''   
-        else:                                   
-            lines.append(line)
-            print(line)
-            servSocket.sendall(line.encode(FORMAT))            
+                write_file(lines, recipient)               
+                lines = []
+                recipient = ''   
+            else:                                   
+                lines.append(line)
+                print(line)
+                
     else:
         if cmd_valid(line): #Error 500 check         
             if order_valid(line): #Error 503 check              
@@ -120,7 +117,6 @@ def msg_loop(line):
                 elif prev_cmd == 'mfrm' or prev_cmd == 'rcpt': # 501 Error check
                     if parameter_valid(line): # 501 Error Check
                         if prev_cmd == 'rcpt': # Get recipient name if rcpt to:
-                            print(line)
                             no_space = line.replace(" ","")        
                             no_space = no_space.replace("\t","")
                             no_space = no_space.replace("\n","")
@@ -128,7 +124,6 @@ def msg_loop(line):
                             no_space = no_space.replace("'","")
                             no_space = no_space.replace(">","")
                             tokens = no_space.split("@", 1)
-                            domain = tokens[1]
                             recipient = tokens[1]
                         OK = '250 OK'
                         print(line)
